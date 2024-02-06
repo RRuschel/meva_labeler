@@ -18,12 +18,13 @@ sudo apt-get install python3-tk
 ```
 python UI.py --hoi_path <root_path_to_meva_data> --filter_by <e.g. camera OR location, etc> --filter_val <G109 OR bus>
 ```
-Sample command:
-Camera
+Sample commands:
+
+e.g. Camera
 ```
 python UI.py --hoi_path ./data/meva --filter_by camera --filter_val G109
 ```
-Location
+e.g. Location
 ```
 python UI.py --hoi_path ./data/meva --filter_by location --filter_val bus
 ```
