@@ -331,10 +331,20 @@ class MEVA(Dataset):
         acts_list = parse_activity_yaml(act_file)
         #print('Organizing actions')
         acts_list = [act.organize(True) for act in acts_list]
+        # Old code, ngl I don't remember what it does
         for box in boxes:
             for act in acts_list:
                 if act.check_add_box(box):
                     break
+        # Add new code to fix the issue with the boxes
+        for box in boxes:
+            for action in acts_list:
+                if box.id1 in action.actors_time_dict.keys():
+                    if box.ts in action.actors_time_dict[box.id1]['timespan']:
+                        if 'boxes' not in action.actors_time_dict[box.id1]:
+                            action.actors_time_dict[box.id1]['boxes'] = [box]
+                        else:
+                            action.actors_time_dict[box.id1]['boxes'].append(box)
         print(f'Done!')
 
         if self.output_format == 'DDS':

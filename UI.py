@@ -150,13 +150,16 @@ def process_next_video():
         all_frames = sorted(list(all_frames))
 
         for action in actions:
-            random_idx = random.choice(list(action.boxes.keys()))
-            for actor_id, bbox in zip(action.actors_time_dict.keys(), action.boxes[random_idx]):
+            #random_idx = random.choice(list(action.boxes.keys()))
+            #for actor_id, bbox in zip(action.actors_time_dict.keys(), action.boxes[random_idx]):
+            for actor_id in action.actors_time_dict.keys():
+                random_box = random.choice(action.actors_time_dict[actor_id]['boxes'])
+                random_idx = random_box.ts
                 first_frame = all_frames.index(random_idx)
                 actor_class = list(categories[actor_id].keys())[0]
 
                 frame = Image.open(str(frame_files[first_frame]))
-                box = (bbox.x0, bbox.y0, bbox.x1, bbox.y1)
+                box = (random_box.x0, random_box.y0, random_box.x1, random_box.y1)
                 draw = ImageDraw.Draw(frame)
                 draw.rectangle(box, outline=(255, 0, 0), width=5)
 
