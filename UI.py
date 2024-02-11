@@ -22,6 +22,69 @@ output_file = Path(args.hoi_path) / 'correspondence_dict.txt'
 
 assert len(args.filter_by) == len(args.filter_val), 'Filter by and filter value must have the same length'
 
+class ZoomableImage:
+    def __init__(self, _orig_image, _bbox, _category_frame, _row, _col):
+        self.is_zoomed = False
+        self.orig_img = _orig_image
+        self.bbox = _bbox
+        max_size = (600, 600)
+        PADDING = 20
+
+        padded_box = (_bbox[0] - PADDING, _bbox[1] - PADDING, _bbox[2] + PADDING, _bbox[3] + PADDING)
+        self.zoomed_image  = self.orig_img.crop(padded_box).copy()
+        scale = 1
+        if self.zoomed_image.size[0] < self.zoomed_image.size[1]:
+            scale = self.zoomed_image.size[0] / self.zoomed_image.size[1]
+            new_width = int(max_size[0] * scale)
+            max_size = (new_width, max_size[1])
+            self.zoomed_image = self.zoomed_image.resize((new_width, max_size[1]), resample = Image.BOX)
+        else:
+            scale = self.zoomed_image.size[1] / self.zoomed_image.size[0]
+            new_height = int(max_size[1] * scale)
+            max_size = (max_size[0], new_height)
+            self.zoomed_image = self.zoomed_image.resize((max_size[0], new_height), resample = Image.BOX)
+
+        # Draw rectangle on the original image
+        draw = ImageDraw.Draw(self.orig_img)
+        draw.rectangle(_bbox, outline=(255, 0, 0), width=5)
+
+        # Convert bbox to respect with zoomed_image
+        x0 = PADDING * 2
+        y0 = PADDING * 2
+        x1 = max_size[0] - PADDING * 2
+        y1 = max_size[1] - PADDING * 2
+        draw = ImageDraw.Draw(self.zoomed_image)
+        draw.rectangle((x0, y0, x1, y1), outline=(255, 0, 0), width=3)
+
+        # Resize images for conformity
+        self.orig_img.thumbnail((600, 600))
+        self.zoomed_image.thumbnail((self.orig_img.size[1], self.orig_img.size[1]))
+        self.orig_photo = ImageTk.PhotoImage(self.orig_img)
+        self.zoomed_photo = ImageTk.PhotoImage(self.zoomed_image)   
+
+        # Image label
+        self.label = tk.Label(_category_frame, image=self.orig_photo)
+        self.label.bind("<Button-1>", lambda e: self.toggle_zoom(e))
+        self.label.grid(row=_row, column=_col, padx=5, pady=5)
+
+    def toggle_zoom(self, _event):
+        """Toggles zoom in on an image."""
+        if self.is_zoomed:
+            self.show_original_image()
+        else:
+            self.show_zoomed_image()
+        self.is_zoomed = not self.is_zoomed    
+
+    def show_original_image(self):
+        """Shows the original image."""
+        self.label.configure(image=self.orig_photo)
+        self.label.image = self.orig_photo    
+
+    def show_zoomed_image(self):
+        """Shows the zoomed image."""
+        self.label.configure(image=self.zoomed_photo)
+        self.label.image = self.zoomed_photo
+
 def write_annotation():
     try:
         with open(output_file, 'a') as f:
@@ -43,6 +106,7 @@ def get_videos_iterator(all_videos):
     """Yield videos one by one."""
     for video in all_videos:
         yield video
+
 
 
 def load_images(canvas, current_frame):
@@ -70,15 +134,10 @@ def load_images(canvas, current_frame):
 
         col = 0  # Column index for images within a category
         row = 1  # Start image row within the category frame
-        for img, actor_id, frame_idx in img_actor_pairs:
-            img.thumbnail((600, 600))  # Resize for uniformity
-            photo = ImageTk.PhotoImage(img)
-            images.append(photo)  # Keep a reference!
-
-            # Image label
-            label = tk.Label(category_frame, image=photo)
-            label.grid(row=row, column=col, padx=5, pady=5)
-            image_labels.append(label)
+        for img, actor_id, frame_idx, bbox in img_actor_pairs:
+            z_img = ZoomableImage(img, bbox, category_frame, row, col)
+            images.append(z_img.orig_photo)  # Keep a reference!
+            image_labels.append(z_img.label)  # Keep a reference!
 
             # Caption label with actor_id
             caption_label = tk.Label(category_frame, text=f'Actor ID: {actor_id} - Frame: {frame_idx}')
@@ -160,10 +219,10 @@ def process_next_video():
 
                 frame = Image.open(str(frame_files[first_frame]))
                 box = (random_box.x0, random_box.y0, random_box.x1, random_box.y1)
-                draw = ImageDraw.Draw(frame)
-                draw.rectangle(box, outline=(255, 0, 0), width=5)
+                # draw = ImageDraw.Draw(frame)
+                # draw.rectangle(box, outline=(255, 0, 0), width=5)
 
-                class_dict[actor_class].append((frame, actor_id, random_idx))
+                class_dict[actor_class].append((frame, actor_id, random_idx, box))
 
         for k, v in class_dict.items():
             class_dict[k] = sorted(v, key=lambda x: x[2])
@@ -257,6 +316,7 @@ root.bind('<Escape>', lambda e: skip_video())  # Bind the escape key to quit the
 correspondence_dict = defaultdict(list)
 filename = None
 class_dict = defaultdict(list)
+class_dict_kyle = defaultdict(list)
 
 #frames_folder = Path('/home/raphael/Documents/skywalker_6/raphael/meva/frames')
 frames_folder = Path(args.hoi_path) / 'frames'
