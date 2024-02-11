@@ -30,7 +30,13 @@ class ZoomableImage:
         max_size = (600, 600)
         PADDING = 20
 
-        padded_box = (_bbox[0] - PADDING, _bbox[1] - PADDING, _bbox[2] + PADDING, _bbox[3] + PADDING)
+        max_x, max_y, = self.orig_img.size
+        padded_box = [_bbox[0] - PADDING, _bbox[1] - PADDING, _bbox[2] + PADDING, _bbox[3] + PADDING]
+        padded_box[0] = max(0, padded_box[0])
+        padded_box[1] = max(0, padded_box[1])
+        padded_box[2] = min(max_x, padded_box[2])
+        padded_box[3] = min(max_y, padded_box[3])
+        
         self.zoomed_image  = self.orig_img.crop(padded_box).copy()
         scale = 1
         if self.zoomed_image.size[0] < self.zoomed_image.size[1]:
