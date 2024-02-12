@@ -366,7 +366,7 @@ class MEVA(Dataset):
             date, start_time, end_time, location, camera = file_name.split('.')
             location_dict[location].append(file_name)
             camera_dict[camera].append(file_name)
-            start_time_dict[start_time].append(file_name)
+            start_time_dict[start_time[:-3]].append(file_name)
             date_dict[date].append(file_name)
         return {'location': location_dict, 'camera': camera_dict, 'start_time': start_time_dict, 'date': date_dict}
 

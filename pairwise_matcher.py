@@ -14,9 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hoi_path', help='Path to HOI file', default='/home/raphael/Documents/skywalker_6/raphael/meva')
 parser.add_argument('--dataset_file', type=str, default='MEVA')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['camera'])
-parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['G331'])
+parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date', 'start_time'])
+parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05', '13-15'])
 parser.add_argument('--max_cols', type=int, default=2)
+parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G506'])
 args = parser.parse_args()
 
 MAX_COLS = args.max_cols
@@ -322,8 +323,8 @@ if __name__ == '__main__':
     right_name = None
     left_name = None
     id_map_dict = defaultdict(list)
-    #video_id_mapping = Path(args.hoi_path) / 'video_id_mapping.txt'
-    video_id_mapping = Path('video_id_mapping.txt')
+    video_id_mapping = Path(args.hoi_path) / 'video_id_mapping.txt'
+    #video_id_mapping = Path('video_id_mapping.txt')
 
     #frames_folder = Path('/home/raphael/Documents/skywalker_6/raphael/meva/frames')
     frames_folder = Path(args.hoi_path) / 'frames'
@@ -334,27 +335,41 @@ if __name__ == '__main__':
     first_dict = {}
     second_dict = {}
 
-    for i in range(len(dataset.file_names)-1):
-        first_file = dataset.file_names[i]
-        second_file = dataset.file_names[i+1]
+    assert len(args.camera_pairs) <= 2, 'Error: Camera pairs must be a single camera or a single pair'
+    camera_1, camera_2 = args.camera_pairs
+    left_camera_files = natsorted(dataset.filter_files()['camera'][camera_1])
+    right_camera_files = natsorted(dataset.filter_files()['camera'][camera_2])
 
-        date1, start1, end1, _, _ = first_file.split('.')
-        date2, start2, end2, _, _ = second_file.split('.')
+    if camera_1 == camera_2:
+        for i in range(len(left_camera_files)-1):
+            first_file = left_camera_files[i]
+            second_file = left_camera_files[i+1]
 
-        if date1 != date2:
-            continue
+            date1, start1, end1, _, _ = first_file.split('.')
+            date2, start2, end2, _, _ = second_file.split('.')
 
-        if end1 == start2:
+            if date1 != date2:
+                continue
+
+            if end1 == start2:
+                pairs.append((first_file, second_file))
+
+    else:
+        for first_file, second_file in zip(left_camera_files, right_camera_files):
             pairs.append((first_file, second_file))
 
-    with open(video_id_mapping, 'r') as f:
-        for line in f:
-            try:
-                first, second, _ = line.split(':')
-                pairs = [(_first, _second) for _first, _second in pairs if _first != first and _second != second]
-            except ValueError as ve:
-                print(f'Error on read_correspondence_dict: {ve}')
-                continue
+    try:
+        with open(video_id_mapping, 'r') as f:
+            for line in f:
+                try:
+                    first, second, _ = line.split(':')
+                    pairs = [(_first, _second) for _first, _second in pairs if _first != first and _second != second]
+                except ValueError as ve:
+                    print(f'Error on read_correspondence_dict: {ve}')
+                    continue
+    except FileNotFoundError as e:
+        print(f'{video_id_mapping} not found, creating a new file')
+        
 
     pairs_iterator = get_videos_iterator(pairs)
     process_next_video()
