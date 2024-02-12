@@ -8,6 +8,7 @@ from MEVA import build
 from collections import defaultdict
 from PIL import ImageDraw
 import random
+import copy
 
 
 parser = argparse.ArgumentParser()
@@ -25,7 +26,7 @@ assert len(args.filter_by) == len(args.filter_val), 'Filter by and filter value 
 class ZoomableImage:
     def __init__(self, _orig_image, _bbox, _category_frame, _row, _col):
         self.is_zoomed = False
-        self.orig_img = _orig_image
+        self.orig_img = copy.deepcopy(_orig_image)
         self.bbox = _bbox
         max_size = (600, 600)
         PADDING = 20
@@ -36,6 +37,9 @@ class ZoomableImage:
         padded_box[1] = max(0, padded_box[1])
         padded_box[2] = min(max_x, padded_box[2])
         padded_box[3] = min(max_y, padded_box[3])
+
+        if padded_box[0] >= padded_box[2] or padded_box[1] >= padded_box[3]:
+            print(f'Invalid bbox: {padded_box}')
         
         self.zoomed_image  = self.orig_img.crop(padded_box).copy()
         scale = 1
@@ -173,7 +177,7 @@ def submit_annotation(event=None):
     first_entry = list(class_dict.keys())[0]
     for id_to_remove in annotation_indexes:
         id_to_remove = int(id_to_remove)
-        for i, (_, actor_id, _) in enumerate(class_dict[first_entry]):
+        for i, (_, actor_id, _, _) in enumerate(class_dict[first_entry]):
             if actor_id == id_to_remove:
                 class_dict[first_entry].pop(i)
 
