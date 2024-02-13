@@ -14,10 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hoi_path', help='Path to HOI file', default='/home/raphael/Documents/skywalker_6/raphael/meva')
 parser.add_argument('--dataset_file', type=str, default='MEVA')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date', 'start_time'])
-parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05', '13-15'])
+parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date'])
+parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05'])
 parser.add_argument('--max_cols', type=int, default=2)
-parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G506'])
+parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G331'])
 args = parser.parse_args()
 
 MAX_COLS = args.max_cols
@@ -119,6 +119,8 @@ def process_next_video():
 
     except StopIteration:
         print('No more videos')
+        #write_annotation()
+        root.quit()
         return
 
 
@@ -206,7 +208,7 @@ def read_correspondence_dict(file_location):
 def write_annotation():
     global video_id_mapping
     try:
-        with open(video_id_mapping, 'w') as f:
+        with open(video_id_mapping, 'a') as f:
             for k, v in id_map_dict.items():
                 f.write(f'{k}:{v}\n')
         print(f'Annotation saved to {video_id_mapping}')
@@ -335,7 +337,7 @@ if __name__ == '__main__':
     first_dict = {}
     second_dict = {}
 
-    assert len(args.camera_pairs) <= 2, 'Error: Camera pairs must be a single camera or a single pair'
+    assert len(args.camera_pairs) <= 2, 'Error: Camera pairs must be a single pair (e.g. G331 G332) or a single camera (e.g. G331 G331)'
     camera_1, camera_2 = args.camera_pairs
     left_camera_files = natsorted(dataset.filter_files()['camera'][camera_1])
     right_camera_files = natsorted(dataset.filter_files()['camera'][camera_2])
@@ -365,7 +367,7 @@ if __name__ == '__main__':
                     first, second, _ = line.split(':')
                     pairs = [(_first, _second) for _first, _second in pairs if _first != first and _second != second]
                 except ValueError as ve:
-                    print(f'Error on read_correspondence_dict: {ve}')
+                    print(f'Error on video_id_mapping: {ve}')
                     continue
     except FileNotFoundError as e:
         print(f'{video_id_mapping} not found, creating a new file')
