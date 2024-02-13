@@ -190,6 +190,7 @@ def dump_frame_with_unique_id(unique_map, file, dataset, correspondence_dict, ra
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(frame, f'ID: {unique_idx}', (0, 0), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         cv2.imwrite(str(tmp_output_path / f'frame_{frame_counter:06d}.jpg'), frame)
+        frame_counter += 1
     video_reader.release()
 
 
@@ -286,7 +287,7 @@ if __name__ == '__main__':
         '2018-03-05.13-15-00.13-20-00.bus.G506'
     ]
 
-    dump_files_threaded(files, dataset, correspondence_dict, unique_map, output_path='./')
+    #dump_files_threaded(files, dataset, correspondence_dict, unique_map, output_path='./')
 
     data_dict = update_annotations(files, dataset, correspondence_dict)
 

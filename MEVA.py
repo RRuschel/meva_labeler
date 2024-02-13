@@ -10,6 +10,7 @@ from tqdm import tqdm
 import yaml
 from box_ops import box_xyxy_to_cxcywh, box_cxcywh_to_xyxy, union_box
 from functools import total_ordering
+from functools import lru_cache
 
 @total_ordering
 class activity:
@@ -312,6 +313,7 @@ class MEVA(Dataset):
         
         return anno_dict
 
+    @lru_cache(maxsize=10)
     def __getitem__(self, index: Union[int, str]) -> tuple:
         if type(index) == int:
             index = self.file_names[index]
