@@ -176,7 +176,7 @@ def dump_frame_with_unique_id(unique_map, file, dataset, correspondence_dict, ra
     video_length = int(video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
     frame_counter = 0
     while frame_counter < video_length:
-        frame, ret = video_reader.read()
+        ret, frame = video_reader.read()
 
         for action in actions:
             for actor_id, actor_info in action.actors_time_dict.items():
@@ -188,7 +188,7 @@ def dump_frame_with_unique_id(unique_map, file, dataset, correspondence_dict, ra
                     box = actor_info['boxes'][box_idx]
                     x1, y1, x2, y2 = box
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(frame, f'ID: {unique_idx}', (0, 0), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                    cv2.putText(frame, f'ID: {unique_idx}', (x1-10, y1), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         cv2.imwrite(str(tmp_output_path / f'frame_{frame_counter:06d}.jpg'), frame)
         frame_counter += 1
     video_reader.release()

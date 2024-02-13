@@ -104,6 +104,15 @@ class BBox:
         result += f"Timestamp: {self.ts}\n"
         return result
 
+    def __iter__(self):
+        return iter((self.x0, self.y0, self.x1, self.y1))
+
+    def __repr__(self):
+        result = f"Box: {self.x0} {self.y0} {self.x1} {self.y1}\n"
+        result += f"ID: {self.id0} {self.id1}\n"
+        result += f"Timestamp: {self.ts}\n"
+        return result
+
 def parse_activity_yaml(file_path):
     with open(file_path, 'r') as file:
         # Load the YAML content
