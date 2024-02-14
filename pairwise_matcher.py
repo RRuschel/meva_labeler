@@ -14,10 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hoi_path', help='Path to HOI file', default='/home/raphael/Documents/skywalker_6/raphael/meva')
 parser.add_argument('--dataset_file', type=str, default='MEVA')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date'])
-parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05'])
+parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date', 'start_time'])
+parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05', '13-15'])
 parser.add_argument('--max_cols', type=int, default=2)
-parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G331'])
+parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G506'])
 args = parser.parse_args()
 
 MAX_COLS = args.max_cols
@@ -40,7 +40,7 @@ def update_annotation(cat_id_pairs, c_dict, video_name):
     
     if video_name not in c_dict:
         print(f'No correspondence dict for {video_name}')
-        return cat_id_pairs
+        return None
     
     c_list = ast.literal_eval(c_dict[video_name].strip())
 
@@ -67,6 +67,10 @@ def load_video(filename, actions, categories, frame_files):
     all_frames = sorted(list(all_frames))
 
     categories = update_annotation(categories, correspondence_dict, filename)
+
+    if not categories:
+        print(f'No categories found for {filename}')
+        return None
 
     cat = set(categories.values())
 
@@ -108,12 +112,15 @@ def process_next_video():
         _, _, actions2, categories2 = dataset[second_file]
 
         if not actions1 or not actions2:
-            print('No actions found')
-            write_annotation()
+            print('No actions found @ process_next_video')
+            # write_annotation()
             return process_next_video()
         
         first_dict = load_video(first_file, actions1, categories1, first_frames)
         second_dict = load_video(second_file, actions2, categories2, second_frames)
+
+        if not first_dict and not second_dict:
+            return process_next_video()
 
         load_images(canvas, canvas_r, left_frame, right_frame)
 
@@ -128,7 +135,7 @@ def load_images(canvas, canvas_r, left_frame, right_frame):
     global first_dict, second_dict, left_name, right_name, images_first, images_second, labels_first, labels_second
     
     if not first_dict and not second_dict:
-        print('No actions found')
+        print('No actions found @ load_images')
         write_annotation()
         return process_next_video()
     
@@ -350,6 +357,11 @@ if __name__ == '__main__':
             date1, start1, end1, _, _ = first_file.split('.')
             date2, start2, end2, _, _ = second_file.split('.')
 
+            start1 = start1[:-3]
+            end1 = end1[:-3]
+            start2 = start2[:-3]
+            end2 = end2[:-3]
+
             if date1 != date2:
                 continue
 
@@ -360,12 +372,16 @@ if __name__ == '__main__':
         for first_file, second_file in zip(left_camera_files, right_camera_files):
             pairs.append((first_file, second_file))
 
+
     try:
         with open(video_id_mapping, 'r') as f:
             for line in f:
                 try:
                     first, second, _ = line.split(':')
-                    pairs = [(_first, _second) for _first, _second in pairs if _first != first and _second != second]
+                    for idx, pair in enumerate(pairs):
+                        if pair[0] == first and pair[1] == second:
+                            pairs.pop(idx)
+                            break
                 except ValueError as ve:
                     print(f'Error on video_id_mapping: {ve}')
                     continue

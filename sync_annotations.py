@@ -62,7 +62,7 @@ class UniqueObjects():
             id_map = video_id_mapping[camera]
             for new_camera, id_pairs in id_map.items():
                 for id_pair in id_pairs:
-                    self.try_add(camera, id_pair[0], new_camera, id_pair[1])
+                    self.update(camera, id_pair[0], new_camera, id_pair[1])
     
     def __len__(self):
         return len(self.objects)
@@ -74,7 +74,7 @@ class UniqueObjects():
             'obj_id': [obj_id]
         })
 
-    def try_add(self, shows_up, obj_id, update_location, update_id):
+    def update(self, shows_up, obj_id, update_location, update_id):
         _, start_time, _, _, camera = shows_up.split('.')
         _, start_time_new, _, _, camera_new = update_location.split('.')
         start_time = start_time[:-3]
@@ -287,7 +287,7 @@ if __name__ == '__main__':
         '2018-03-05.13-15-00.13-20-00.bus.G506'
     ]
 
-    #dump_files_threaded(files, dataset, correspondence_dict, unique_map, output_path='./')
+    dump_files_threaded(files, dataset, correspondence_dict, unique_map, output_path='./')
 
     data_dict = update_annotations(files, dataset, correspondence_dict)
 
