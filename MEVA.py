@@ -558,11 +558,13 @@ def dump_video_with_DDS_anno(video_path, DDS_dict, output_path, MEVA_activities)
 
 
 def build(image_set, args):
-    # TODO: Build test set
-    if image_set != 'train':
-        raise NotImplementedError('Only train set is supported')
     base_path = Path(args.hoi_path)
-    anno_root_path = base_path / 'meva-data-repo/annotation/DIVA-phase-2/MEVA/kitware-meva-training'
+    if image_set == 'train':
+        anno_root_path = base_path / 'meva-data-repo/annotation/DIVA-phase-2/MEVA/kitware-meva-training'
+    elif image_set == 'val':
+        anno_root_path = base_path / 'meva-data-repo/annotation/DIVA-phase-2/MEVA/kitware'
+    else:
+        raise ValueError(f'Image set {image_set} not recognized')
     data_root_path = base_path / 'data'
 
     dataset = MEVA(data_root_path, anno_root_path, args)
