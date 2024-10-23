@@ -275,6 +275,10 @@ def skip_video():
 
 ### Initial UI Setup
 
+# Function to handle mouse wheel event
+def _on_mouse_wheel(event):
+    canvas.yview_scroll(int(-1*(event.delta/120)), "units")  # For Windows and macOS
+
 root = tk.Tk()
 root.title('Annotation Tool')
 
@@ -294,13 +298,18 @@ canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
 scrollable_frame.bind("<Configure>", lambda event, canvas=canvas: on_frame_configure(canvas))
 
+# Bind the mouse wheel event to the canvas (Windows/macOS)
+canvas.bind_all("<MouseWheel>", _on_mouse_wheel)
+
+# If you are on Linux, use these bindings as well
+canvas.bind_all("<Button-4>", lambda event: canvas.yview_scroll(-1, "units"))  # Scroll up
+canvas.bind_all("<Button-5>", lambda event: canvas.yview_scroll(1, "units"))  # Scroll down
+
 # Now, use `scrollable_frame` as your `current_frame` for adding images
 current_frame = scrollable_frame
 
 # Initialize a list to store past frame thumbnails
 past_frames = []
-# video_iterator = get_videos_iterator(all_videos)e = None  # Placeholder for the current image
-
 
 # Create a label to display the current frame
 current_frame_label = tk.Label(current_frame)
@@ -311,15 +320,13 @@ annotation_frame = tk.Frame(root)
 annotation_label = tk.Label(annotation_frame, text="Enter the unique ids of the objects to remove (comma separated)")
 annotation_entry = tk.Entry(annotation_frame)
 submit_button = tk.Button(annotation_frame, text="Submit Annotation", command=submit_annotation)
-root.bind('<Return>', lambda e: submit_annotation())  # Bind the return key to submit the annotation
+root.bind('<Return>', lambda e: submit_annotation(e))  # Bind the return key to submit the annotation
 annotation_frame.pack(side='bottom', fill='x', expand=False)  # Pack the annotation frame at the bottom
 annotation_label.pack(side='top', fill='x', expand=False)  # Pack the label inside the annotation frame
 annotation_entry.pack(side='top', fill='x', expand=False)  # Pack the entry below the label
 submit_button.pack(side='top', fill='x', expand=False)  # Pack the submit button below the entry
 
 root.bind('<Escape>', lambda e: skip_video())  # Bind the escape key to quit the application
-
-### End of Initial UI Setup
 
 
 # Some Global Variables
@@ -332,8 +339,6 @@ class_dict_kyle = defaultdict(list)
 frames_folder = Path(args.hoi_path) / 'frames'
 dataset = build(image_set='val', args=args)
 frame_files = []
-
-
 
 
 # Get started
