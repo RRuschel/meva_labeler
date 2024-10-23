@@ -24,10 +24,11 @@ output_file = Path(args.hoi_path) / 'correspondence_dict.txt'
 assert len(args.filter_by) == len(args.filter_val), 'Filter by and filter value must have the same length'
 
 class ZoomableImage:
-    def __init__(self, _orig_image, _bbox, _category_frame, _row, _col):
+    def __init__(self, _orig_image, _bbox, _category_frame, _row, _col, actor_id):
         self.is_zoomed = False
         self.orig_img = copy.deepcopy(_orig_image)
         self.bbox = _bbox
+        self.actor_id = actor_id  # Store actor_id
         max_size = (600, 600)
         PADDING = 20
 
@@ -74,7 +75,8 @@ class ZoomableImage:
 
         # Image label
         self.label = tk.Label(_category_frame, image=self.orig_photo)
-        self.label.bind("<Button-1>", lambda e: self.toggle_zoom(e))
+        self.label.bind("<Button-1>", lambda e: self.toggle_zoom(e))  # Left click to zoom
+        self.label.bind("<Button-3>", lambda e: self.add_actor_id_to_entry())  # Right click to add actor_id
         self.label.grid(row=_row, column=_col, padx=5, pady=5)
 
     def toggle_zoom(self, _event):
@@ -94,6 +96,14 @@ class ZoomableImage:
         """Shows the zoomed image."""
         self.label.configure(image=self.zoomed_photo)
         self.label.image = self.zoomed_photo
+    
+    def add_actor_id_to_entry(self):
+        """Adds the actor ID to the annotation entry."""
+        current_text = annotation_entry.get()
+        if current_text:
+            annotation_entry.insert(tk.END, f", {self.actor_id}")
+        else:
+            annotation_entry.insert(tk.END, str(self.actor_id))
 
 def write_annotation():
     try:
@@ -145,7 +155,7 @@ def load_images(canvas, current_frame):
         col = 0  # Column index for images within a category
         row = 1  # Start image row within the category frame
         for img, actor_id, frame_idx, bbox in img_actor_pairs:
-            z_img = ZoomableImage(img, bbox, category_frame, row, col)
+            z_img = ZoomableImage(img, bbox, category_frame, row, col, actor_id)
             images.append(z_img.orig_photo)  # Keep a reference!
             image_labels.append(z_img.label)  # Keep a reference!
 
