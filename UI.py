@@ -347,7 +347,7 @@ class_dict_kyle = defaultdict(list)
 
 #frames_folder = Path('/home/raphael/Documents/skywalker_6/raphael/meva/frames')
 frames_folder = Path(args.hoi_path) / 'frames'
-dataset = build(image_set='val', args=args)
+dataset = build(image_set='train', args=args)
 frame_files = []
 
 

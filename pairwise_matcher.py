@@ -9,16 +9,103 @@ from collections import defaultdict
 from PIL import ImageDraw
 import random
 import ast
+import copy
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--hoi_path', help='Path to HOI file', default='/home/raphael/Documents/skywalker_6/raphael/meva')
 parser.add_argument('--dataset_file', type=str, default='MEVA')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date', 'start_time'])
-parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05', '13-15'])
+# parser.add_argument('--filter_by', nargs='+', help='Filter by', default=['date', 'start_time'])
+# parser.add_argument('--filter_val', nargs='+', help='Filter value', default=['2018-03-05', '13-15'])
+parser.add_argument('--filter_by', nargs='+', help='Filter by', default=[])
+parser.add_argument('--filter_val', nargs='+', help='Filter value', default=[])
 parser.add_argument('--max_cols', type=int, default=2)
 parser.add_argument('--camera_pairs', nargs='+', help='Camera pairs to perform matching', default=['G331', 'G506'])
 args = parser.parse_args()
+
+class ZoomableImage:
+    def __init__(self, _orig_image, _bbox, _category_frame, _row, _col, actor_id):
+        self.is_zoomed = False
+        self.orig_img = copy.deepcopy(_orig_image)
+        self.bbox = _bbox
+        self.actor_id = actor_id  # Store actor_id
+        max_size = (600, 600)
+        PADDING = 20
+
+        max_x, max_y, = self.orig_img.size
+        padded_box = [_bbox[0] - PADDING, _bbox[1] - PADDING, _bbox[2] + PADDING, _bbox[3] + PADDING]
+        # padded_box[0] = max(0, padded_box[0])
+        # padded_box[1] = max(0, padded_box[1])
+        padded_box[0] = min(max_x, padded_box[0])
+        padded_box[1] = min(max_y, padded_box[1])
+        padded_box[2] = min(max_x, padded_box[2])
+        padded_box[3] = min(max_y, padded_box[3])
+
+        if padded_box[0] >= padded_box[2] or padded_box[1] >= padded_box[3]:
+            print(f'Invalid bbox: {padded_box}')
+        
+        self.zoomed_image  = self.orig_img.crop(padded_box).copy()
+        scale = 1
+        if self.zoomed_image.size[0] < self.zoomed_image.size[1]:
+            scale = self.zoomed_image.size[0] / self.zoomed_image.size[1]
+            new_width = int(max_size[0] * scale)
+            max_size = (new_width, max_size[1])
+            self.zoomed_image = self.zoomed_image.resize((new_width, max_size[1]), resample = Image.BOX)
+        else:
+            scale = self.zoomed_image.size[1] / self.zoomed_image.size[0]
+            new_height = int(max_size[1] * scale)
+            max_size = (max_size[0], new_height)
+            self.zoomed_image = self.zoomed_image.resize((max_size[0], new_height), resample = Image.BOX)
+
+        # Draw rectangle on the original image
+        draw = ImageDraw.Draw(self.orig_img)
+        draw.rectangle(_bbox, outline=(255, 0, 0), width=5)
+
+        # Convert bbox to respect with zoomed_image
+        x0 = PADDING * 2
+        y0 = PADDING * 2
+        x1 = max_size[0] - PADDING * 2
+        y1 = max_size[1] - PADDING * 2
+        draw = ImageDraw.Draw(self.zoomed_image)
+        draw.rectangle((x0, y0, x1, y1), outline=(255, 0, 0), width=3)
+
+        # Resize images for conformity
+        self.orig_img.thumbnail((600, 600))
+        self.zoomed_image.thumbnail((self.orig_img.size[1], self.orig_img.size[1]))
+        self.orig_photo = ImageTk.PhotoImage(self.orig_img)
+        self.zoomed_photo = ImageTk.PhotoImage(self.zoomed_image)   
+
+        # Image label
+        self.label = tk.Label(_category_frame, image=self.orig_photo)
+        self.label.bind("<Button-1>", lambda e: self.toggle_zoom(e))  # Left click to zoom
+        self.label.bind("<Button-3>", lambda e: self.add_actor_id_to_entry())  # Right click to add actor_id
+        self.label.grid(row=_row, column=_col, padx=5, pady=5)
+
+    def toggle_zoom(self, _event):
+        """Toggles zoom in on an image."""
+        if self.is_zoomed:
+            self.show_original_image()
+        else:
+            self.show_zoomed_image()
+        self.is_zoomed = not self.is_zoomed    
+
+    def show_original_image(self):
+        """Shows the original image."""
+        self.label.configure(image=self.orig_photo)
+        self.label.image = self.orig_photo    
+
+    def show_zoomed_image(self):
+        """Shows the zoomed image."""
+        self.label.configure(image=self.zoomed_photo)
+        self.label.image = self.zoomed_photo
+    
+    def add_actor_id_to_entry(self):
+        """Adds the actor ID to the annotation entry."""
+        current_text = annotation_entry.get()
+        if current_text:
+            annotation_entry.insert(tk.END, f", {self.actor_id}")
+        else:
+            annotation_entry.insert(tk.END, str(self.actor_id))
 
 MAX_COLS = args.max_cols
 
@@ -68,7 +155,7 @@ def load_video(filename, actions, categories, frame_files):
 
     categories = update_annotation(categories, correspondence_dict, filename)
 
-    if not categories:
+    if not categories or set(categories.keys()) == set('skipped'):
         print(f'No categories found for {filename}')
         return None
 
@@ -85,10 +172,10 @@ def load_video(filename, actions, categories, frame_files):
 
                 frame = Image.open(str(frame_files[first_frame]))
                 box = (random_box.x0, random_box.y0, random_box.x1, random_box.y1)
-                draw = ImageDraw.Draw(frame)
-                draw.rectangle(box, outline=(255, 0, 0), width=5)
+                # draw = ImageDraw.Draw(frame)
+                # draw.rectangle(box, outline=(255, 0, 0), width=5)
 
-                new_dict[filename].append((frame, random_idx, categories[actor_id]))
+                new_dict[filename].append((frame, random_idx, categories[actor_id], box))
                 cat.remove(categories[actor_id])
 
     # for k,v in new_dict.items():
@@ -119,7 +206,7 @@ def process_next_video():
         first_dict = load_video(first_file, actions1, categories1, first_frames)
         second_dict = load_video(second_file, actions2, categories2, second_frames)
 
-        if not first_dict and not second_dict:
+        if not first_dict or not second_dict:
             return process_next_video()
 
         load_images(canvas, canvas_r, left_frame, right_frame)
@@ -152,16 +239,21 @@ def load_images(canvas, canvas_r, left_frame, right_frame):
         _row = 0
         _col = 0
         left_name = list(first_dict.keys())[0]
-        for frame, random_idx, actor_id in first_dict[left_name]:
-            frame.thumbnail((600, 600))
-            img = ImageTk.PhotoImage(frame)
-            images_first.append(img)
+        category_frame_left = tk.LabelFrame(left_frame, text=left_name, padx=5, pady=5)
+        category_frame_left.grid(row=_row, column=0, columnspan=5, sticky='ew', padx=5, pady=5)
+        #for frame, random_idx, actor_id in first_dict[left_name]:
+        for frame, random_idx, actor_id, box in first_dict[left_name]:
+            #frame.thumbnail((600, 600))
+            #img = ImageTk.PhotoImage(frame)
+            img = ZoomableImage(frame, box, category_frame_left, _row, _col, actor_id)
+            images_first.append(img.orig_photo)
+            labels_first.append(img.label)
 
-            label = tk.Label(left_frame, image=img)
-            label.grid(row=_row, column=_col, padx=5, pady=5)
-            labels_first.append(label)
+            # label = tk.Label(left_frame, image=img)
+            # label.grid(row=_row, column=_col, padx=5, pady=5)
+            # labels_first.append(label)
 
-            caption_label = tk.Label(left_frame, text=f'Actor {actor_id} - Frame {random_idx}')
+            caption_label = tk.Label(category_frame_left, text=f'Actor {actor_id} - Frame {random_idx}')
             caption_label.grid(row=_row+1, column=_col, padx=5, pady=5)
 
             _col+=1
@@ -175,16 +267,21 @@ def load_images(canvas, canvas_r, left_frame, right_frame):
         _row = 0
         _col = 0
         right_name = list(second_dict.keys())[0]
-        for frame, random_idx, actor_id in second_dict[right_name]:
-            frame.thumbnail((600, 600))
-            img = ImageTk.PhotoImage(frame)
-            images_second.append(img)
+        category_frame_right = tk.LabelFrame(right_frame, text=right_name, padx=5, pady=5)
+        category_frame_right.grid(row=_row, column=0, columnspan=5, sticky='ew', padx=5, pady=5)
+        #for frame, random_idx, actor_id in second_dict[right_name]:
+        for frame, random_idx, actor_id, box in second_dict[right_name]:
+            #frame.thumbnail((600, 600))
+            #img = ImageTk.PhotoImage(frame)
+            img = ZoomableImage(frame, box, category_frame_right, _row, _col, actor_id)
+            images_second.append(img.orig_photo)
+            labels_second.append(img.label)
 
-            label = tk.Label(right_frame, image=img)
-            label.grid(row=_row, column=_col, padx=5, pady=5)
-            labels_second.append(label)
+            # label = tk.Label(right_frame, image=img)
+            # label.grid(row=_row, column=_col, padx=5, pady=5)
+            # labels_second.append(label)
 
-            caption_label = tk.Label(right_frame, text=f'Actor {actor_id} - Frame {random_idx}')
+            caption_label = tk.Label(category_frame_right, text=f'Actor {actor_id} - Frame {random_idx}')
             caption_label.grid(row=_row+1, column=_col, padx=5, pady=5)
 
             _col+=1
@@ -263,6 +360,14 @@ def submit_annotation(event=None):
     load_images(canvas, canvas_r, left_frame, right_frame)
 
 
+def skip_pair(event=None):
+    global id_map_dict, left_name, right_name
+    print(f'Skipping pair: {left_name}:{right_name}')
+    id_map_dict[f'{left_name}:{right_name}'] = []
+    write_annotation()
+    process_next_video()
+
+
 if __name__ == '__main__':
 
     ### Initial UI Setup
@@ -320,6 +425,7 @@ if __name__ == '__main__':
     annotation_entry = tk.Entry(annotation_frame)
     submit_button = tk.Button(annotation_frame, text="Submit Annotation", command=submit_annotation)
     root.bind('<Return>', lambda e: submit_annotation())  # Bind the return key to submit the annotation
+    root.bind('<Escape>', skip_pair)  # Bind the escape key to skip the pair
     annotation_frame.pack(side='bottom', fill='x', expand=False)  # Pack the annotation frame at the bottom
     annotation_label.pack(side='top', fill='x', expand=False)  # Pack the label inside the annotation frame
     annotation_entry.pack(side='top', fill='x', expand=False)  # Pack the entry below the label
